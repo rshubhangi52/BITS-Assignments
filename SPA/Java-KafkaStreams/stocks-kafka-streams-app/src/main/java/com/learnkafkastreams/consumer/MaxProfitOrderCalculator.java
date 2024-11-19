@@ -20,7 +20,7 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.StringDeserializer;
 
 import com.google.gson.JsonParseException;
-import com.learnkafkastreams.domain.Order;
+import com.learnkafkastreams.domain.TradeOrder;
 import com.learnkafkastreams.topology.OrdersTopology;
 
 /**
@@ -36,14 +36,14 @@ public class MaxProfitOrderCalculator extends BaseOrderCalculator {
 		String maxProfitInstrument = null;
 	    double maxProfit = Double.MIN_VALUE;
 	    double openingPrice = 0.0;
-	    for (Map.Entry<String, Deque<Order>> entry : slidingWindow.entrySet()) {
+	    for (Map.Entry<String, Deque<TradeOrder>> entry : slidingWindow.entrySet()) {
 	    	String instrument = entry.getKey();
-	        Deque<Order> dataDeque = entry.getValue();
+	        Deque<TradeOrder> dataDeque = entry.getValue();
 	        if (dataDeque.size() < 2) continue; // Not enough data for a valid calculation
 	        if (StockOpeningPrice.getOpeningPriceByInstrument().get(instrument) != null) {
 	        	openingPrice = StockOpeningPrice.getOpeningPriceByInstrument().get(instrument);
 	        }
-	        double avgClosingPrice = dataDeque.stream().mapToDouble(d -> d.price()).average().orElse(0.0);
+	        double avgClosingPrice = dataDeque.stream().mapToDouble(d -> d.getPrice()).average().orElse(0.0);
 	        double profit = avgClosingPrice - openingPrice;
             if (profit > maxProfit) {
             	maxProfit = profit;
@@ -83,11 +83,11 @@ public class MaxProfitOrderCalculator extends BaseOrderCalculator {
 			    ConsumerRecords<String, String> records = consumer.poll(Duration.ofMinutes(HOP_BY));
 
 			    for (ConsumerRecord<String, String> consumerRecord : records) {
-			        Order data = gson.fromJson(consumerRecord.value(), Order.class);
-			        String instrument = data.stock_name();
+			        TradeOrder data = gson.fromJson(consumerRecord.value(), TradeOrder.class);
+			        String instrument = data.getInstrument();
 			        slidingWindow.computeIfAbsent(instrument, k -> new ConcurrentLinkedDeque<>()).addLast(data);
 			        // Maintain a sliding window of 5 minutes for each instrument
-			        while (isOutsideWindow(slidingWindow.get(instrument), Long.parseLong(data.timestamp()))) {
+			        while (isOutsideWindow(slidingWindow.get(instrument), data.getTimestamp())) {
 			            slidingWindow.get(instrument).pollFirst();
 			        }
 			    }

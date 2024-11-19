@@ -19,7 +19,7 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.StringDeserializer;
 
 import com.google.gson.JsonParseException;
-import com.learnkafkastreams.domain.Order;
+import com.learnkafkastreams.domain.TradeOrder;
 import com.learnkafkastreams.topology.OrdersTopology;;
 
 /**
@@ -28,9 +28,9 @@ import com.learnkafkastreams.topology.OrdersTopology;;
 public class SMAOrderCalculator extends BaseOrderCalculator {
 	
 	public static void calculateSMA(String instrument) {
-        Deque<Order> dataDeque = slidingWindow.get(instrument);
+        Deque<TradeOrder> dataDeque = slidingWindow.get(instrument);
         if (dataDeque.size() < 2) return; // Not enough data for a valid calculation
-        double sma = (dataDeque.stream().mapToDouble(d -> d.price()).average().orElse(0.0));
+        double sma = (dataDeque.stream().mapToDouble(d -> d.getPrice()).average().orElse(0.0));
         System.out.printf("Instrument: %s, SMA (5-min): %.2f%n", instrument, sma);
         Properties propsProducer = new Properties();
       	propsProducer.put("bootstrap.servers", "localhost:9092");
@@ -58,12 +58,12 @@ public class SMAOrderCalculator extends BaseOrderCalculator {
 			for (int minute = 0; minute < TIME_LIMIT; minute++) {
 			    ConsumerRecords<String, String> records = consumer.poll(Duration.ofMinutes(HOP_BY));
 			    for (ConsumerRecord<String, String> consumerRecord : records) {
-			        Order data = gson.fromJson(consumerRecord.value(), Order.class);
-			        String instrument = data.stock_name();
+			        TradeOrder data = gson.fromJson(consumerRecord.value(), TradeOrder.class);
+			        String instrument = data.getInstrument();
 			        slidingWindow.computeIfAbsent(instrument, k -> new ConcurrentLinkedDeque<>()).addLast(data);
 
 			        // Maintain a sliding window of 5 minutes for each instrument
-			        while (isOutsideWindow(slidingWindow.get(instrument), Long.parseLong(data.timestamp()))) {
+			        while (isOutsideWindow(slidingWindow.get(instrument), data.getTimestamp())) {
 			            slidingWindow.get(instrument).pollFirst();
 			        }
 			        calculateSMA(instrument);
