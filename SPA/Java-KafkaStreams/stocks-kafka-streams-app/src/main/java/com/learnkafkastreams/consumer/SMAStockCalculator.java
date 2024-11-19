@@ -19,12 +19,10 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.StringDeserializer;
 
 import com.google.gson.JsonParseException;
+import com.learnkafkastreams.OrdersKafkaStreamApp;
 import com.learnkafkastreams.domain.StockData;
-import com.learnkafkastreams.topology.OrdersTopology;;
+import com.learnkafkastreams.topology.OrdersTopology;
 
-/**
- * 
- */
 public class SMAStockCalculator extends BaseStockCalculator {
 	
 	public static void calculateSMA(String instrument) {
@@ -32,7 +30,6 @@ public class SMAStockCalculator extends BaseStockCalculator {
         if (dataDeque.size() < 2) return; // Not enough data for a valid calculation
         double sma = (dataDeque.stream().mapToDouble(d -> d.getPrice()).average().orElse(0.0));
         System.out.printf("Instrument: %s, SMA (5-min): %.2f%n", instrument, sma);
-        
         //Properties propsProducer = new Properties();
 		//propsProducer.put("bootstrap.servers", "localhost:9092");
 		//propsProducer.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
@@ -56,8 +53,8 @@ public class SMAStockCalculator extends BaseStockCalculator {
         
         try (Consumer<String, String> consumer = new KafkaConsumer<>(propsConsumer)) {
 			consumer.subscribe(Collections.singletonList(OrdersTopology.STOCK_PRICE_TOPIC));
-			while (true) {
-			    ConsumerRecords<String, String> records = consumer.poll(Duration.ofSeconds(1));
+			for (int minute = 0; minute < TIME_LIMIT; minute++)  {
+			    ConsumerRecords<String, String> records = consumer.poll(Duration.ofMinutes(HOP_BY));
 			    for (ConsumerRecord<String, String> consumerRecord : records) {
 			        StockData data = gson.fromJson(consumerRecord.value(), StockData.class);
 			        String instrument = data.getInstrument();

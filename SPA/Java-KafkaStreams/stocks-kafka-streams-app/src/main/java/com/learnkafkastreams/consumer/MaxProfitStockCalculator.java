@@ -67,7 +67,7 @@ public class MaxProfitStockCalculator extends BaseStockCalculator {
 	 * @param args
 	 */
 	public static void main(String[] args) {
-		StockOpeningPrice.loadOpeningPrice("C:\\spa\\BITSAssignments\\SPA\\opening_price.csv");
+		StockOpeningPrice.loadOpeningPrice("src/main/resources/opening_price.csv");
 		
 		Properties propsConsumer = new Properties();
 		propsConsumer.put("bootstrap.servers", "localhost:9092");
@@ -79,8 +79,8 @@ public class MaxProfitStockCalculator extends BaseStockCalculator {
 		try (Consumer<String, String> consumer = new KafkaConsumer<>(propsConsumer)) {
 			consumer.subscribe(Collections.singletonList(OrdersTopology.STOCK_PRICE_TOPIC));
 
-			while (true) {
-			    ConsumerRecords<String, String> records = consumer.poll(Duration.ofMinutes(TIME_LIMIT));
+			for (int minute = 0; minute < TIME_LIMIT; minute++) {
+			    ConsumerRecords<String, String> records = consumer.poll(Duration.ofMinutes(HOP_BY));
 
 			    for (ConsumerRecord<String, String> consumerRecord : records) {
 			        StockData data = gson.fromJson(consumerRecord.value(), StockData.class);
