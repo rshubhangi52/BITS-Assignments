@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.google.gson.Gson;
-import com.learnkafkastreams.domain.Order;
+import com.learnkafkastreams.domain.TradeOrder;
 
 /**
  * 
@@ -17,15 +17,17 @@ public abstract class BaseOrderCalculator {
 
 	protected static final int WINDOW_SIZE = 5; // 5-minute sliding window
     
-	protected static final int TIME_LIMIT = 10; // last 10-minutes
+	protected static final int HOP_BY = 1; // 1-minute hop
+	
+	protected static final int TIME_LIMIT = 10; //calculate for last 10-minutes
 	
 	protected static final Gson gson = new Gson();
 	
-	protected static final Map<String, Deque<Order>> slidingWindow = new ConcurrentHashMap<>();
+	protected static final Map<String, Deque<TradeOrder>> slidingWindow = new ConcurrentHashMap<>();
 	
-	protected static boolean isOutsideWindow(Deque<Order> window, long currentTimestamp) {
+	protected static boolean isOutsideWindow(Deque<TradeOrder> window, long currentTimestamp) {
         if (window.isEmpty()) return false;
-        return currentTimestamp - Long.parseLong(window.peekFirst().timestamp()) > WINDOW_SIZE * 60 * 1000; // 5 minutes in milliseconds
+        return currentTimestamp - window.peekFirst().getTimestamp() > WINDOW_SIZE * 60 * 1000; // 5 minutes in milliseconds
     }
    
 }

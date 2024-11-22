@@ -13,10 +13,13 @@ import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.Producer;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.StringDeserializer;
 
 import com.google.gson.JsonParseException;
-import com.learnkafkastreams.domain.Order;
+import com.learnkafkastreams.domain.TradeOrder;
 import com.learnkafkastreams.topology.OrdersTopology;;
 
 /**
@@ -24,10 +27,19 @@ import com.learnkafkastreams.topology.OrdersTopology;;
  */
 public class SMAOrderCalculator extends BaseOrderCalculator {
 	
-	public static double calculateSMA(String instrument) {
-        Deque<Order> dataDeque = slidingWindow.get(instrument);
-        if (dataDeque.size() < 2) return 0.0; // Not enough data for a valid calculation
-        return (dataDeque.stream().mapToDouble(d -> d.price()).average().orElse(0.0));
+	public static void calculateSMA(String instrument) {
+        Deque<TradeOrder> dataDeque = slidingWindow.get(instrument);
+        if (dataDeque.size() < 2) return; // Not enough data for a valid calculation
+        double sma = (dataDeque.stream().mapToDouble(d -> d.getPrice()).average().orElse(0.0));
+        System.out.printf("Instrument: %s, SMA (5-min): %.2f%n", instrument, sma);
+        Properties propsProducer = new Properties();
+      	propsProducer.put("bootstrap.servers", "localhost:9092");
+      	propsProducer.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+      	propsProducer.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+      	try (Producer<String, String> producer = new KafkaProducer<>(propsProducer)) {
+      		producer.send(new ProducerRecord<>(OrdersTopology.SMA_TOPIC, instrument, gson.toJson(sma)));
+      	    producer.flush();
+      	}
 	}
 	
 	/**
@@ -41,25 +53,20 @@ public class SMAOrderCalculator extends BaseOrderCalculator {
         props.put("value.deserializer", StringDeserializer.class.getName());
         props.put("auto.offset.reset", "earliest");
         
-        Properties propsProducer = new Properties();
-        propsProducer.put("bootstrap.servers", "localhost:9092");
-        propsProducer.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
-        propsProducer.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
-        
         try (Consumer<String, String> consumer = new KafkaConsumer<>(props)) {
 			consumer.subscribe(Collections.singletonList(OrdersTopology.MATCHED_TRADES_TOPIC));
-			while (true) {
-			    ConsumerRecords<String, String> records = consumer.poll(Duration.ofSeconds(60*10));
+			for (int minute = 0; minute < TIME_LIMIT; minute++) {
+			    ConsumerRecords<String, String> records = consumer.poll(Duration.ofMinutes(HOP_BY));
 			    for (ConsumerRecord<String, String> consumerRecord : records) {
-			        Order data = gson.fromJson(consumerRecord.value(), Order.class);
-			        String instrument = data.stock_name();
+			        TradeOrder data = gson.fromJson(consumerRecord.value(), TradeOrder.class);
+			        String instrument = data.getInstrument();
 			        slidingWindow.computeIfAbsent(instrument, k -> new ConcurrentLinkedDeque<>()).addLast(data);
 
 			        // Maintain a sliding window of 5 minutes for each instrument
-			        while (isOutsideWindow(slidingWindow.get(instrument), Long.parseLong(data.timestamp()))) {
+			        while (isOutsideWindow(slidingWindow.get(instrument), data.getTimestamp())) {
 			            slidingWindow.get(instrument).pollFirst();
 			        }
-			        System.out.printf("Instrument: %s, SMA (5-min): %.2f%n", instrument, calculateSMA(instrument));
+			        calculateSMA(instrument);
 			    }
 			}
 		} catch (JsonParseException e) {

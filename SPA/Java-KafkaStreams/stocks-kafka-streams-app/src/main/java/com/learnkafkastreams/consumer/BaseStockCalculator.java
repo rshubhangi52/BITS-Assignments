@@ -17,7 +17,9 @@ public abstract class BaseStockCalculator {
 
 	protected static final int WINDOW_SIZE = 5; // 5-minute sliding window
 	
-	protected static final int TIME_LIMIT = 10; // last 10-minutes
+	protected static final int HOP_BY = 1; // 1-minute hop
+	
+	protected static final int TIME_LIMIT = 10; //calculate for last 10-minutes
     
 	protected static final Gson gson = new Gson();
 	

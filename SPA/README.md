@@ -42,7 +42,11 @@ This folder contains Java programs using Kafka Streams for real-time data proces
   - Code for Main function. 
 - **`OrdersTopology.java`**:
   - Code for streaming data through topics and perform operations.
+- **`SMAOrderCalculator.java`**:
+  - Code for SMA calculation of instrument prices from matched trades
+- **`MaxProfitOrderCalculator.java`**:
+  - Code for instrument giving max profit from matched trades ions.
 - **`SMAStockCalculator.java`**:
-  - Code for SMA calculation
-- **`MaxProfitStockCalculator.java`**:
-  - Code for profit calculation
+  - Code for SMA calculation of randomly generated stock prices
+- **`MaxProfitOrderCalculator.java`**:
+  - Code for instrument giving max profit from randomly generated stock prices
